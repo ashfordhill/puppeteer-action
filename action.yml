@@ -1,5 +1,8 @@
-name: 'Visual Snapper'
+name: 'Puppeteer Action'
 description: 'Take and save a Puppeteer screenshot with a customizable name, and update the latest image'
+branding:
+  icon: 'camera'
+  color: '#6c059c'
 inputs:
   url:
     description: 'The URL to screenshot'
