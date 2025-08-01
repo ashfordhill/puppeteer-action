@@ -5,6 +5,9 @@ RUN apt-get update \
     && apt-get install -y ffmpeg fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
+# Add host.docker.internal for Linux
+RUN echo "host.docker.internal host-gateway" >> /etc/hosts || true
+
 # Create and set working directory for the action code
 WORKDIR /action
 
