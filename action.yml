@@ -7,6 +7,7 @@ inputs:
   url:
     description: 'The URL to visit and screenshot'
     required: true
+    default: 'https://localhost.com:3000'
   folder:
     description: 'The folder to save screenshots in'
     required: true
