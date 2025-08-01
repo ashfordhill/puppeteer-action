@@ -1,9 +1,16 @@
 FROM node:20
 
-# Install ffmpeg and DejaVu fonts (for drawtext)
-RUN apt-get update \
-    && apt-get install -y ffmpeg fonts-dejavu-core iproute2 \
+RUN apt-get update && apt-get install -y \
+    chromium \
+    ffmpeg \
+    fonts-dejavu-core \
+    iproute2 \
     && rm -rf /var/lib/apt/lists/*
+
+# Prevent Puppeteer from downloading its own Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+# Point Puppeteer at the system browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create and set working directory for the action code
 WORKDIR /action
