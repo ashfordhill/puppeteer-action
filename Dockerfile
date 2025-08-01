@@ -3,7 +3,7 @@ FROM node:20-slim
 # Install ffmpeg
 RUN apt-get update && apt-get install -y ffmpeg fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 
-# Install any missing fonts if you use drawtext
+# Install any missing fonts if use drawtext
 RUN apt-get update && apt-get install -y fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
@@ -14,4 +14,4 @@ RUN npm ci
 COPY . .
 
 # Default command (GitHub passes inputs as env vars)
-CMD ["node", "dist/index.js"]
+CMD ["node", "index.js"]
