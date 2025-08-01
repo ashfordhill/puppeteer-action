@@ -10,7 +10,7 @@ inputs:
   folder:
     description: 'The folder to save screenshots in'
     required: true
-    default: 'visual-history'
+    default: 'timeline'
   basename:
     description: 'The base name for the screenshot (e.g., "screenshot")'
     required: true
@@ -33,5 +33,5 @@ inputs:
     default: '640'
 
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: 'docker'
+  image: 'Dockerfile'
