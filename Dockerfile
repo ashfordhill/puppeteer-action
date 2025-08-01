@@ -2,7 +2,7 @@ FROM node:20-slim
 
 # Install ffmpeg and DejaVu fonts (for drawtext)
 RUN apt-get update \
-    && apt-get install -y ffmpeg fonts-dejavu-core \
+    && apt-get install -y ffmpeg fonts-dejavu-core iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Add host.docker.internal for Linux
