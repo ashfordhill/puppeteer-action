@@ -1,0 +1,22 @@
+name: 'Visual Snapper'
+description: 'Take and save a Puppeteer screenshot with a customizable name, and update the latest image'
+inputs:
+  url:
+    description: 'The URL to screenshot'
+    required: true
+  folder:
+    description: 'The folder to save screenshots in'
+    required: true
+    default: 'visual-history'
+  basename:
+    description: 'The base name for the screenshot (e.g., "screenshot")'
+    required: true
+    default: 'screenshot'
+  wait_on:
+    description: 'Optional URL or resource to wait for before running. (e.g., "http://localhost:8080")'
+    required: false
+    default: ''
+
+runs:
+  using: 'node20'
+  main: 'index.js'
