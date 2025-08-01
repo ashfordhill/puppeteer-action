@@ -5,7 +5,7 @@ branding:
   color: 'purple'
 inputs:
   url:
-    description: 'The URL to screenshot'
+    description: 'The URL to visit and screenshot'
     required: true
   folder:
     description: 'The folder to save screenshots in'
@@ -15,10 +15,22 @@ inputs:
     description: 'The base name for the screenshot (e.g., "screenshot")'
     required: true
     default: 'screenshot'
-  wait_on:
-    description: 'Optional URL or resource to wait for before running. (e.g., "http://localhost:8080")'
+  make_video:
+    description: 'Whether to generate a video timeline from screenshots'
     required: false
-    default: ''
+    default: 'false'
+  video_name:
+    description: 'Output video name (e.g., "timeline.mp4")'
+    required: false
+    default: 'timeline.mp4'
+  frame_duration:
+    description: 'How long (seconds) each image should display in the video'
+    required: false
+    default: '1'
+  scale_width:
+    description: 'Width of output video in pixels (height auto-scaled)'
+    required: false
+    default: '640'
 
 runs:
   using: 'node20'
