@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:20-bullseye-slim
 
 # Install ffmpeg and DejaVu fonts (for drawtext)
 RUN apt-get update \
