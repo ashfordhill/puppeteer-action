@@ -1,11 +1,6 @@
 name: Build and Commit Action
 
-on:
-  push:
-    branches:
-      - main
-  release:
-    types: [published]
+on: [push, release]
 
 jobs:
   build:
@@ -23,15 +18,3 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-
-      # To deal with index.js + node_modules. Just use dist/index.js for release
-      - name: Build with ncc
-        run: npx @vercel/ncc build index.js -o dist
-
-      - name: Commit dist
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          git add dist/index.js
-          git commit -m "chore: build dist" || echo "No changes to commit"
-          git push
