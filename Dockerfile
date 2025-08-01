@@ -1,5 +1,4 @@
-FROM node:20-bullseye
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
+FROM node:20
 
 # Install ffmpeg and DejaVu fonts (for drawtext)
 RUN apt-get update \
@@ -12,8 +11,6 @@ WORKDIR /action
 # Install dependencies
 COPY package*.json ./
 RUN npm ci
-
-RUN npx puppeteer browsers install chrome
 
 # Add all action code
 COPY . .
