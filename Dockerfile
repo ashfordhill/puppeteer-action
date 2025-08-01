@@ -12,6 +12,8 @@ WORKDIR /action
 COPY package*.json ./
 RUN npm ci
 
+RUN npx puppeteer browsers install chrome
+
 # Add all action code
 COPY . .
 
