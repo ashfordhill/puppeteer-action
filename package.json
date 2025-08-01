@@ -4,6 +4,7 @@
   "description": "GitHub Action to take screenshots and update latest image",
   "main": "index.js",
   "dependencies": {
+    "@actions/core": "1.11.1",
     "puppeteer": "24.15.0",
     "wait-on": "8.0.4"
   }
