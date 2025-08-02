@@ -23,20 +23,20 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
   
   // Filter for PNG files matching our pattern
   const files = allFiles
-    .filter(f => f.startsWith(base + '_') && f.endsWith('.png') && !f.endsWith('-latest.png'))
+    .filter(f => f.endsWith('.png') && !f.endsWith('-latest.png'))
     .sort();
   
-  core.info(`Found ${files.length} matching PNG files for GIF creation`);
+  core.info(`Found ${files.length} PNG files (excluding -latest.png)`);
   
-  // Log the first few files to help with debugging
+  // Log all files to help with debugging
   if (files.length > 0) {
-    core.info(`First few files: ${files.slice(0, Math.min(5, files.length)).join(', ')}${files.length > 5 ? '...' : ''}`);
+    core.info(`All PNG files: ${files.join(', ')}`);
   } else {
-    core.warning(`No matching files found. Looking for files starting with "${base}_" and ending with ".png"`);
-    // Show some examples of what's in the directory to help debug
+    core.warning(`No PNG files found in the directory.`);
     if (allFiles.length > 0) {
       core.info(`Examples of files in directory: ${allFiles.slice(0, Math.min(5, allFiles.length)).join(', ')}`);
     }
+    return;
   }
 
   if (files.length < 2) {
@@ -44,61 +44,129 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     return;
   }
 
-  const tmpDir = path.join(folder, '__ffmpeg_tmp__');
+  // Create a unique temporary directory
+  const timestamp = Date.now();
+  const tmpDir = path.join(folder, `__ffmpeg_tmp_${timestamp}__`);
   fs.mkdirSync(tmpDir, { recursive: true });
   
   // Copy files to temporary directory with sequential names
+  core.info('Copying files to temporary directory...');
   files.forEach((f, i) => {
     const sourcePath = path.join(folder, f);
     const destPath = path.join(tmpDir, `img${String(i).padStart(4, '0')}.png`);
     fs.copyFileSync(sourcePath, destPath);
-    core.debug(`Copied ${sourcePath} to ${destPath}`);
+    core.info(`Copied ${f} to ${path.basename(destPath)}`);
   });
 
+  // List the files in the temporary directory to confirm
+  const tmpFiles = fs.readdirSync(tmpDir);
+  core.info(`Temporary directory contains ${tmpFiles.length} files: ${tmpFiles.join(', ')}`);
+
   const gifPath = path.join(folder, gifName);
-  const today = new Date();
-  const dateText = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
-  const drawtext = `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${dateText}':x=10:y=10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5`;
-
-  const fps = (1 / parseFloat(frameDuration)).toFixed(6);
-  const vf = `fps=${fps},scale=${scaleWidth}:-1:flags=lanczos,${drawtext},split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer`;
-
-  const cmd = [
-    'ffmpeg', '-y',
-    '-framerate', fps,
-    '-i', path.join(tmpDir, 'img%04d.png'),
-    '-vf', `"${vf}"`,
-    '-loop', '0',
-    gifPath
-  ].join(' ');
-
+  
+  // Use a simpler, more reliable approach for GIF creation
   try {
-    core.info(`Generating GIF with ${files.length} frames...`);
-    core.info(`Using command: ${cmd}`);
-    execSync(cmd, { stdio: 'inherit', shell: true });
-    core.info(`GIF created successfully at: ${gifPath}`);
-    core.setOutput('gif_path', gifPath);
+    // Step 1: Create a palette first (two-step process is more reliable)
+    const palettePath = path.join(tmpDir, 'palette.png');
+    const fps = (1 / parseFloat(frameDuration)).toFixed(2);
+    
+    // Create palette command - without quotes in filter
+    const paletteCmd = [
+      'ffmpeg', '-y',
+      '-framerate', fps,
+      '-i', path.join(tmpDir, 'img%04d.png'),
+      '-vf', `fps=${fps},scale=${scaleWidth}:-1:flags=lanczos,palettegen=max_colors=256`,
+      palettePath
+    ].join(' ');
+    
+    core.info('Step 1: Generating color palette...');
+    core.info(`Using command: ${paletteCmd}`);
+    execSync(paletteCmd, { stdio: 'inherit', shell: true });
+    
+    // Step 2: Create the GIF using the palette
+    const gifCmd = [
+      'ffmpeg', '-y',
+      '-framerate', fps,
+      '-i', path.join(tmpDir, 'img%04d.png'),
+      '-i', palettePath,
+      '-filter_complex', `fps=${fps},scale=${scaleWidth}:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:diff_mode=rectangle`,
+      '-loop', '0',
+      gifPath
+    ].join(' ');
+    
+    core.info(`Step 2: Generating GIF with ${files.length} frames...`);
+    core.info(`Using command: ${gifCmd}`);
+    execSync(gifCmd, { stdio: 'inherit', shell: true });
+    
+    if (fs.existsSync(gifPath)) {
+      const stats = fs.statSync(gifPath);
+      core.info(`GIF created successfully at: ${gifPath} (${stats.size} bytes)`);
+      core.setOutput('gif_path', gifPath);
+    } else {
+      throw new Error('GIF file was not created');
+    }
   } catch (err) {
-    core.warning(`Failed to generate GIF: ${err.message}`);
-    // Try a simpler command if the complex one fails
+    core.warning(`Failed to generate GIF with two-step method: ${err.message}`);
+    
+    // Try an even simpler approach as fallback
     try {
-      core.info('Trying simpler GIF creation method...');
+      core.info('Trying direct GIF creation method...');
       const simpleCmd = [
         'ffmpeg', '-y',
-        '-framerate', fps,
+        '-framerate', (1 / parseFloat(frameDuration)).toFixed(2),
         '-i', path.join(tmpDir, 'img%04d.png'),
-        '-vf', `"scale=${scaleWidth}:-1:flags=lanczos"`,
+        '-vf', `scale=${scaleWidth}:-1:flags=lanczos`,
         gifPath
       ].join(' ');
+      
       core.info(`Using command: ${simpleCmd}`);
       execSync(simpleCmd, { stdio: 'inherit', shell: true });
-      core.info(`GIF created with simpler method at: ${gifPath}`);
-      core.setOutput('gif_path', gifPath);
+      
+      if (fs.existsSync(gifPath)) {
+        const stats = fs.statSync(gifPath);
+        core.info(`GIF created with simple method at: ${gifPath} (${stats.size} bytes)`);
+        core.setOutput('gif_path', gifPath);
+      } else {
+        throw new Error('GIF file was not created');
+      }
     } catch (fallbackErr) {
-      core.error(`Failed to generate GIF with simpler method: ${fallbackErr.message}`);
+      core.error(`Failed to generate GIF with simple method: ${fallbackErr.message}`);
+      
+      // Last resort: try using imagemagick if available
+      try {
+        core.info('Trying ImageMagick convert as last resort...');
+        const convertCmd = [
+          'convert',
+          '-delay', Math.round(parseFloat(frameDuration) * 100),
+          '-loop', '0',
+          path.join(tmpDir, 'img*.png'),
+          gifPath
+        ].join(' ');
+        
+        core.info(`Using command: ${convertCmd}`);
+        execSync(convertCmd, { stdio: 'inherit', shell: true });
+        
+        if (fs.existsSync(gifPath)) {
+          const stats = fs.statSync(gifPath);
+          core.info(`GIF created with ImageMagick at: ${gifPath} (${stats.size} bytes)`);
+          core.setOutput('gif_path', gifPath);
+        } else {
+          throw new Error('GIF file was not created');
+        }
+      } catch (imgErr) {
+        core.error(`All GIF creation methods failed. Last error: ${imgErr.message}`);
+      }
     }
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // Wait a moment before cleaning up to ensure ffmpeg is done
+    setTimeout(() => {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        core.info(`Cleaned up temporary directory: ${tmpDir}`);
+      } catch (cleanupErr) {
+        core.warning(`Failed to clean up temporary directory: ${cleanupErr.message}`);
+      }
+    }, 1000);
   }
 }
 
