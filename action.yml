@@ -1,5 +1,5 @@
 name: 'Puppeteer Action'
-description: 'Take and save a Puppeteer screenshot with a customizable name, and update the latest image'
+description: 'Take a screenshot with Puppeteer; optionally build an animated GIF from a timeline of screenshots'
 branding:
   icon: 'camera'
   color: 'purple'
@@ -7,29 +7,38 @@ inputs:
   url:
     description: 'The URL to visit and screenshot'
     required: true
-    default: 'https://localhost.com:3000'
+    default: 'http://localhost:3000'
   folder:
-    description: 'The folder to save screenshots in'
+    description: 'The folder to save outputs in'
     required: true
     default: 'timeline'
   basename:
-    description: 'The base name for the screenshot (e.g., "screenshot")'
+    description: 'Base name for screenshots (e.g., "screenshot")'
     required: true
     default: 'screenshot'
+  make_gif:
+    description: 'Whether to generate an animated GIF from screenshots'
+    required: false
+    default: 'false'
+  gif_name:
+    description: 'Output GIF name (e.g., "timeline.gif")'
+    required: false
+    default: 'timeline.gif'
+  # kept for backward compatibility; ignored if gif_name is set
   make_video:
-    description: 'Whether to generate a video timeline from screenshots'
+    description: '[compat] If true, treated the same as make_gif'
     required: false
     default: 'false'
   video_name:
-    description: 'Output video name (e.g., "timeline.mp4")'
+    description: '[compat] Used to derive gif_name if gif_name not provided'
     required: false
     default: 'timeline.mp4'
   frame_duration:
-    description: 'How long (seconds) each image should display in the video'
+    description: 'Seconds each frame is shown in the GIF (e.g., 0.083 for ~12 fps, 1 for 1 fps)'
     required: false
     default: '1'
   scale_width:
-    description: 'Width of output video in pixels (height auto-scaled)'
+    description: 'Output width in pixels (height auto-scaled)'
     required: false
     default: '640'
 
