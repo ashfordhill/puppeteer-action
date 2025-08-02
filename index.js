@@ -1,3 +1,4 @@
+// index.js
 const core = require('@actions/core');
 const puppeteer = require('puppeteer');
 const waitOn = require('wait-on');
@@ -7,7 +8,6 @@ const { execSync } = require('child_process');
 
 function guessHostIP() {
   try {
-    // On Linux, the default route’s gateway is usually the host bridge
     const route = execSync("ip route | awk '/default/ {print $3}'").toString().trim();
     return route || null;
   } catch (e) {
@@ -16,65 +16,69 @@ function guessHostIP() {
   }
 }
 
-async function createVideoFromScreenshots(folder, base, videoName, frameDuration, scaleWidth) {
-  // Get all screenshots except the "-latest.png"
+async function createGifFromScreenshots(folder, base, gifName, frameDuration, scaleWidth) {
   const files = fs.readdirSync(folder)
     .filter(f => f.startsWith(base + '_') && f.endsWith('.png') && !f.endsWith('-latest.png'))
-    .sort(); // Sorts by timestamp because the timestamp is in the name
+    .sort();
 
   if (files.length < 2) {
-    core.warning('Not enough screenshots for a video. Need at least 2.');
+    core.warning('Not enough screenshots for a GIF. Need at least 2.');
     return;
   }
 
-  // Prepare temporary sequential files for ffmpeg
   const tmpDir = path.join(folder, '__ffmpeg_tmp__');
   fs.mkdirSync(tmpDir, { recursive: true });
   files.forEach((f, i) => {
     fs.copyFileSync(path.join(folder, f), path.join(tmpDir, `img${String(i).padStart(4, '0')}.png`));
   });
 
-  // Build ffmpeg command
-  const videoPath = path.join(folder, videoName);
+  const gifPath = path.join(folder, gifName);
   const today = new Date();
   const dateText = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
   const drawtext = `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${dateText}':x=10:y=10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5`;
+
+  // fps = images per second; frameDuration is seconds per frame
+  const fps = (1 / parseFloat(frameDuration)).toFixed(6);
+
+  // Palette workflow for sharp, small GIFs
+  const vf = `fps=${fps},scale=${scaleWidth}:-1:flags=lanczos,${drawtext},split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer`;
+
   const cmd = [
     'ffmpeg', '-y',
-    '-framerate', (1 / parseFloat(frameDuration)).toString(),
+    '-framerate', fps,
     '-i', path.join(tmpDir, 'img%04d.png'),
-    '-vf', `"scale=${scaleWidth}:-1,${drawtext}"`,
-    '-pix_fmt', 'yuv420p',
-    videoPath
+    '-vf', `"${vf}"`,
+    '-loop', '0',
+    gifPath
   ].join(' ');
 
   try {
-    core.info('Generating video...');
+    core.info('Generating GIF...');
     execSync(cmd, { stdio: 'inherit', shell: true });
-    core.info(`Video created at: ${videoPath}`);
-    core.setOutput('video_path', videoPath);
+    core.info(`GIF created at: ${gifPath}`);
+    core.setOutput('gif_path', gifPath);
   } catch (err) {
-    core.warning(`Failed to generate video: ${err.message}`);
+    core.warning(`Failed to generate GIF: ${err.message}`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 }
 
-// Launch Puppeteer, take screenshot, and optionally create video.
-// This is the main function that runs when the action is triggered.
 (async () => {
   try {
     const folder = core.getInput('folder');
     const basename = core.getInput('basename');
-    const makeVideo = core.getInput('make_video') === 'true';
-    const videoName = core.getInput('video_name');
-    const frameDuration = core.getInput('frame_duration');
+
+    // Back-compat: treat make_video=true as make_gif=true if present
+    const makeGif = core.getInput('make_gif') === 'true' || core.getInput('make_video') === 'true';
+    const gifNameInput = core.getInput('gif_name');
+    const videoNameLegacy = core.getInput('video_name'); // may exist from older workflows
+    const gifName = gifNameInput || (videoNameLegacy ? videoNameLegacy.replace(/\.mp4$/i, '.gif') : 'timeline.gif');
+
+    const frameDuration = core.getInput('frame_duration'); // seconds per frame
     const scaleWidth = core.getInput('scale_width');
 
-
     let rawUrl = core.getInput('url');
-
-    // If user passed localhost, rewrite it to the detected host IP so container can reach the host service
     if (rawUrl.includes('localhost')) {
       const hostIp = guessHostIP();
       if (hostIp) {
@@ -87,15 +91,12 @@ async function createVideoFromScreenshots(folder, base, videoName, frameDuration
     }
     const url = rawUrl;
 
-    // Wait for the resource if specified
     core.info(`Waiting for resource: ${url}`);
     await waitOn({ resources: [url], timeout: 30000 });
     core.info('Resource available!');
 
-    // Ensure folder exists
     fs.mkdirSync(folder, { recursive: true });
 
-    // Launch Puppeteer and take screenshot
     const browser = await puppeteer.launch({
       defaultViewport: { width: 1920, height: 1080 },
       headless: true,
@@ -104,14 +105,11 @@ async function createVideoFromScreenshots(folder, base, videoName, frameDuration
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
 
-    // Timestamped file
     const timestamp = Date.now();
     const file = `${basename}_${timestamp}.png`;
     const filePath = path.join(folder, file);
-
     await page.screenshot({ path: filePath });
 
-    // Overwrite latest image
     const latestPath = path.join(folder, `${basename}-latest.png`);
     fs.copyFileSync(filePath, latestPath);
 
@@ -121,11 +119,9 @@ async function createVideoFromScreenshots(folder, base, videoName, frameDuration
     core.setOutput('screenshot_path', filePath);
     core.setOutput('latest_path', latestPath);
 
-    // Optionally, generate the video after screenshotting
-    if (makeVideo) {
-      await createVideoFromScreenshots(folder, basename, videoName, frameDuration, scaleWidth);
+    if (makeGif) {
+      await createGifFromScreenshots(folder, basename, gifName, frameDuration, scaleWidth);
     }
-
   } catch (error) {
     core.setFailed(error.message);
   }
