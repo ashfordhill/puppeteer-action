@@ -17,9 +17,27 @@ function guessHostIP() {
 }
 
 async function createGifFromScreenshots(folder, base, gifName, frameDuration, scaleWidth) {
-  const files = fs.readdirSync(folder)
+  // List all files in the folder
+  const allFiles = fs.readdirSync(folder);
+  core.info(`Found ${allFiles.length} total files in ${folder}`);
+  
+  // Filter for PNG files matching our pattern
+  const files = allFiles
     .filter(f => f.startsWith(base + '_') && f.endsWith('.png') && !f.endsWith('-latest.png'))
     .sort();
+  
+  core.info(`Found ${files.length} matching PNG files for GIF creation`);
+  
+  // Log the first few files to help with debugging
+  if (files.length > 0) {
+    core.info(`First few files: ${files.slice(0, Math.min(5, files.length)).join(', ')}${files.length > 5 ? '...' : ''}`);
+  } else {
+    core.warning(`No matching files found. Looking for files starting with "${base}_" and ending with ".png"`);
+    // Show some examples of what's in the directory to help debug
+    if (allFiles.length > 0) {
+      core.info(`Examples of files in directory: ${allFiles.slice(0, Math.min(5, allFiles.length)).join(', ')}`);
+    }
+  }
 
   if (files.length < 2) {
     core.warning('Not enough screenshots for a GIF. Need at least 2.');
@@ -28,8 +46,13 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 
   const tmpDir = path.join(folder, '__ffmpeg_tmp__');
   fs.mkdirSync(tmpDir, { recursive: true });
+  
+  // Copy files to temporary directory with sequential names
   files.forEach((f, i) => {
-    fs.copyFileSync(path.join(folder, f), path.join(tmpDir, `img${String(i).padStart(4, '0')}.png`));
+    const sourcePath = path.join(folder, f);
+    const destPath = path.join(tmpDir, `img${String(i).padStart(4, '0')}.png`);
+    fs.copyFileSync(sourcePath, destPath);
+    core.debug(`Copied ${sourcePath} to ${destPath}`);
   });
 
   const gifPath = path.join(folder, gifName);
@@ -50,12 +73,30 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
   ].join(' ');
 
   try {
-    core.info('Generating GIF...');
+    core.info(`Generating GIF with ${files.length} frames...`);
+    core.info(`Using command: ${cmd}`);
     execSync(cmd, { stdio: 'inherit', shell: true });
-    core.info(`GIF created at: ${gifPath}`);
+    core.info(`GIF created successfully at: ${gifPath}`);
     core.setOutput('gif_path', gifPath);
   } catch (err) {
     core.warning(`Failed to generate GIF: ${err.message}`);
+    // Try a simpler command if the complex one fails
+    try {
+      core.info('Trying simpler GIF creation method...');
+      const simpleCmd = [
+        'ffmpeg', '-y',
+        '-framerate', fps,
+        '-i', path.join(tmpDir, 'img%04d.png'),
+        '-vf', `"scale=${scaleWidth}:-1:flags=lanczos"`,
+        gifPath
+      ].join(' ');
+      core.info(`Using command: ${simpleCmd}`);
+      execSync(simpleCmd, { stdio: 'inherit', shell: true });
+      core.info(`GIF created with simpler method at: ${gifPath}`);
+      core.setOutput('gif_path', gifPath);
+    } catch (fallbackErr) {
+      core.error(`Failed to generate GIF with simpler method: ${fallbackErr.message}`);
+    }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

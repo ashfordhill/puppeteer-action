@@ -1,19 +1,19 @@
 # Puppeteer GitHub Action
 
 A GitHub Action to screenshot any URL with a timestamp.
-Video can be optionally created from this Action.
+An animated GIF can be optionally created from a series of screenshots.
 
 ## Inputs
 
 | Name             | Required | Default        | Description                                                                |
 | ---------------- | -------- | -------------- | -------------------------------------------------------------------------- |
 | `url`            | Yes      | *(none)*       | The URL to screenshot.                                                     |
-| `folder`         | Yes      | `timeline`     | The folder to save screenshots (and the output video) in.                  |
+| `folder`         | Yes      | `timeline`     | The folder to save screenshots (and the output GIF) in.                    |
 | `basename`       | Yes      | `screenshot`   | The base name for the screenshot files (e.g., `screenshot_123456.png`).    |
-| `make_video`     | No       | `false`        | Whether to generate a video timeline from screenshots (`true` or `false`). |
-| `video_name`     | No       | `timeline.mp4` | Output video name (e.g., `timeline.mp4`).                                  |
-| `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the video.              |
-| `scale_width`    | No       | `640`          | Width of the output video in pixels (height auto-scales).                  |
+| `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots (`true` or `false`).  |
+| `gif_name`       | No       | `timeline.gif` | Output GIF name (e.g., `timeline.gif`).                                    |
+| `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
+| `scale_width`    | No       | `640`          | Width of the output GIF in pixels (height auto-scales).                    |
 
 
 ## Setup
@@ -41,8 +41,8 @@ jobs:
           url: http://localhost:3000
           folder: timeline
           basename: screenshot
-          make_video: true
-          video_name: timeline.mp4
+          make_gif: true
+          gif_name: timeline.gif
           frame_duration: 1
           scale_width: 640
 
