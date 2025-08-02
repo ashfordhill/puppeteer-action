@@ -64,7 +64,6 @@ async function createVideoFromScreenshots(folder, base, videoName, frameDuration
 // This is the main function that runs when the action is triggered.
 (async () => {
   try {
-    //const url = core.getInput('url');
     const folder = core.getInput('folder');
     const basename = core.getInput('basename');
     const makeVideo = core.getInput('make_video') === 'true';
@@ -103,7 +102,7 @@ async function createVideoFromScreenshots(folder, base, videoName, frameDuration
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
 
     // Timestamped file
     const timestamp = Date.now();
