@@ -64,39 +64,31 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 
   const gifPath = path.join(folder, gifName);
   
-  // Use a simpler, more reliable approach for GIF creation
+  // Get current date for timestamp
+  const today = new Date();
+  const dateText = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
+  
+  // Create a timestamp text in the bottom right corner
+  // fontsize=24: size of the font
+  // x=w-tw-10: position text at width minus text width minus 10px padding
+  // y=h-th-10: position text at height minus text height minus 10px padding
+  const drawtext = `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${dateText}':x=w-tw-10:y=h-th-10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5`;
+  
   try {
-    // Step 1: Create a palette first (two-step process is more reliable)
-    const palettePath = path.join(tmpDir, 'palette.png');
+    // Direct GIF creation method with timestamp
+    core.info('Creating GIF with timestamp...');
     const fps = (1 / parseFloat(frameDuration)).toFixed(2);
-    
-    // Create palette command - without quotes in filter
-    const paletteCmd = [
+    const simpleCmd = [
       'ffmpeg', '-y',
       '-framerate', fps,
       '-i', path.join(tmpDir, 'img%04d.png'),
-      '-vf', `fps=${fps},scale=${scaleWidth}:-1:flags=lanczos,palettegen=max_colors=256`,
-      palettePath
-    ].join(' ');
-    
-    core.info('Step 1: Generating color palette...');
-    core.info(`Using command: ${paletteCmd}`);
-    execSync(paletteCmd, { stdio: 'inherit', shell: true });
-    
-    // Step 2: Create the GIF using the palette
-    const gifCmd = [
-      'ffmpeg', '-y',
-      '-framerate', fps,
-      '-i', path.join(tmpDir, 'img%04d.png'),
-      '-i', palettePath,
-      '-filter_complex', `fps=${fps},scale=${scaleWidth}:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:diff_mode=rectangle`,
+      '-vf', `scale=${scaleWidth}:-1:flags=lanczos,${drawtext}`,
       '-loop', '0',
       gifPath
     ].join(' ');
     
-    core.info(`Step 2: Generating GIF with ${files.length} frames...`);
-    core.info(`Using command: ${gifCmd}`);
-    execSync(gifCmd, { stdio: 'inherit', shell: true });
+    core.info(`Using command: ${simpleCmd}`);
+    execSync(simpleCmd, { stdio: 'inherit', shell: true });
     
     if (fs.existsSync(gifPath)) {
       const stats = fs.statSync(gifPath);
@@ -106,12 +98,12 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
       throw new Error('GIF file was not created');
     }
   } catch (err) {
-    core.warning(`Failed to generate GIF with two-step method: ${err.message}`);
+    core.warning(`Failed to generate GIF: ${err.message}`);
     
-    // Try an even simpler approach as fallback
+    // Try without the timestamp if that was the issue
     try {
-      core.info('Trying direct GIF creation method...');
-      const simpleCmd = [
+      core.info('Trying without timestamp...');
+      const fallbackCmd = [
         'ffmpeg', '-y',
         '-framerate', (1 / parseFloat(frameDuration)).toFixed(2),
         '-i', path.join(tmpDir, 'img%04d.png'),
@@ -119,18 +111,18 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
         gifPath
       ].join(' ');
       
-      core.info(`Using command: ${simpleCmd}`);
-      execSync(simpleCmd, { stdio: 'inherit', shell: true });
+      core.info(`Using command: ${fallbackCmd}`);
+      execSync(fallbackCmd, { stdio: 'inherit', shell: true });
       
       if (fs.existsSync(gifPath)) {
         const stats = fs.statSync(gifPath);
-        core.info(`GIF created with simple method at: ${gifPath} (${stats.size} bytes)`);
+        core.info(`GIF created without timestamp at: ${gifPath} (${stats.size} bytes)`);
         core.setOutput('gif_path', gifPath);
       } else {
         throw new Error('GIF file was not created');
       }
     } catch (fallbackErr) {
-      core.error(`Failed to generate GIF with simple method: ${fallbackErr.message}`);
+      core.error(`Failed to generate GIF without timestamp: ${fallbackErr.message}`);
       
       // Last resort: try using imagemagick if available
       try {
