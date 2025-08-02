@@ -37,10 +37,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
   const dateText = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
   const drawtext = `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${dateText}':x=10:y=10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5`;
 
-  // fps = images per second; frameDuration is seconds per frame
   const fps = (1 / parseFloat(frameDuration)).toFixed(6);
-
-  // Palette workflow for sharp, small GIFs
   const vf = `fps=${fps},scale=${scaleWidth}:-1:flags=lanczos,${drawtext},split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer`;
 
   const cmd = [
@@ -68,13 +65,8 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
   try {
     const folder = core.getInput('folder');
     const basename = core.getInput('basename');
-
-    // Back-compat: treat make_video=true as make_gif=true if present
-    const makeGif = core.getInput('make_gif') === 'true' || core.getInput('make_video') === 'true';
-    const gifNameInput = core.getInput('gif_name');
-    const videoNameLegacy = core.getInput('video_name'); // may exist from older workflows
-    const gifName = gifNameInput || (videoNameLegacy ? videoNameLegacy.replace(/\.mp4$/i, '.gif') : 'timeline.gif');
-
+    const makeGif = core.getInput('make_gif') === 'true';
+    const gifName = core.getInput('gif_name');
     const frameDuration = core.getInput('frame_duration'); // seconds per frame
     const scaleWidth = core.getInput('scale_width');
 
