@@ -24,15 +24,6 @@ inputs:
     description: 'Output GIF name (e.g., "timeline.gif")'
     required: false
     default: 'timeline.gif'
-  # kept for backward compatibility; ignored if gif_name is set
-  make_video:
-    description: '[compat] If true, treated the same as make_gif'
-    required: false
-    default: 'false'
-  video_name:
-    description: '[compat] Used to derive gif_name if gif_name not provided'
-    required: false
-    default: 'timeline.mp4'
   frame_duration:
     description: 'Seconds each frame is shown in the GIF (e.g., 0.083 for ~12 fps, 1 for 1 fps)'
     required: false
