@@ -1,7 +1,7 @@
 {
   "name": "ash-visual-snapper-action",
   "version": "1.0.0",
-  "description": "GitHub Action to take screenshots and update latest image",
+  "description": "GitHub Action to take screenshots and create animated GIFs from timeline",
   "main": "index.js",
   "dependencies": {
     "@actions/core": "1.11.1",

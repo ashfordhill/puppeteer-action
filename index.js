@@ -185,7 +185,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     const url = rawUrl;
 
     core.info(`Waiting for resource: ${url}`);
-    await waitOn({ resources: [url], timeout: 30000 });
+    await waitOn({ resources: [url], timeout: 120000 });
     core.info('Resource available!');
 
     fs.mkdirSync(folder, { recursive: true });
