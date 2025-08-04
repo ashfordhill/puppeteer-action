@@ -47,11 +47,14 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
       label = 'No timestamp';
     }
 
+    // Escape special characters for ffmpeg drawtext
+    const safeLabel = label.replace(/:/g, '\\:').replace(/'/g, "\\\\'");
+  
     const sourcePath = path.join(folder, f);
     const destPath = path.join(tmpDir, `img${String(i).padStart(4, '0')}.png`);
-
+  
     execSync(
-      `ffmpeg -y -i "${sourcePath}" -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${label}':x=w-tw-10:y=h-th-10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5" "${destPath}"`,
+      `ffmpeg -y -i "${sourcePath}" -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${safeLabel}':x=w-tw-10:y=h-th-10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5" "${destPath}"`,
       { stdio: 'inherit', shell: true }
     );
     core.info(`Processed ${f} -> ${path.basename(destPath)} with label "${label}"`);
