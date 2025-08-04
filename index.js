@@ -20,14 +20,14 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
   // List all files in the folder
   const allFiles = fs.readdirSync(folder);
   core.info(`Found ${allFiles.length} total files in ${folder}`);
-  
+
   // Filter for PNG files matching our pattern
   const files = allFiles
     .filter(f => f.endsWith('.png') && !f.endsWith('-latest.png'))
     .sort();
-  
+
   core.info(`Found ${files.length} PNG files (excluding -latest.png)`);
-  
+
   // Log all files to help with debugging
   if (files.length > 0) {
     core.info(`All PNG files: ${files.join(', ')}`);
@@ -48,7 +48,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
   const timestamp = Date.now();
   const tmpDir = path.join(folder, `__ffmpeg_tmp_${timestamp}__`);
   fs.mkdirSync(tmpDir, { recursive: true });
-  
+
   // Copy files to temporary directory with sequential names
   core.info('Copying files to temporary directory...');
   files.forEach((f, i) => {
@@ -63,17 +63,25 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
   core.info(`Temporary directory contains ${tmpFiles.length} files: ${tmpFiles.join(', ')}`);
 
   const gifPath = path.join(folder, gifName);
-  
-  // Get current date for timestamp
-  const today = new Date();
-  const dateText = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
-  
+
+  // Get the timestamp from the first PNG filename
+  const match = files[0].match(/_(\d+)\.png$/);
+  let dateText = '';
+  if (match) {
+    const ts = parseInt(match[1], 10);
+    const d = new Date(ts);
+    dateText = `${d.getMonth() + 1}-${d.getDate()}-${d.getFullYear()}`;
+  } else {
+    core.warning('Could not extract timestamp from filename; falling back to current date.');
+    const today = new Date();
+    dateText = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
+  }
   // Create a timestamp text in the bottom right corner
   // fontsize=24: size of the font
   // x=w-tw-10: position text at width minus text width minus 10px padding
   // y=h-th-10: position text at height minus text height minus 10px padding
   const drawtext = `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${dateText}':x=w-tw-10:y=h-th-10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5`;
-  
+
   try {
     // Direct GIF creation method with timestamp
     core.info('Creating GIF with timestamp...');
@@ -86,10 +94,10 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
       '-loop', '0',
       gifPath
     ].join(' ');
-    
+
     core.info(`Using command: ${simpleCmd}`);
     execSync(simpleCmd, { stdio: 'inherit', shell: true });
-    
+
     if (fs.existsSync(gifPath)) {
       const stats = fs.statSync(gifPath);
       core.info(`GIF created successfully at: ${gifPath} (${stats.size} bytes)`);
@@ -99,7 +107,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     }
   } catch (err) {
     core.warning(`Failed to generate GIF: ${err.message}`);
-    
+
     // Try without the timestamp if that was the issue
     try {
       core.info('Trying without timestamp...');
@@ -110,10 +118,10 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
         '-vf', `scale=${scaleWidth}:-1:flags=lanczos`,
         gifPath
       ].join(' ');
-      
+
       core.info(`Using command: ${fallbackCmd}`);
       execSync(fallbackCmd, { stdio: 'inherit', shell: true });
-      
+
       if (fs.existsSync(gifPath)) {
         const stats = fs.statSync(gifPath);
         core.info(`GIF created without timestamp at: ${gifPath} (${stats.size} bytes)`);
@@ -123,7 +131,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
       }
     } catch (fallbackErr) {
       core.error(`Failed to generate GIF without timestamp: ${fallbackErr.message}`);
-      
+
       // Last resort: try using imagemagick if available
       try {
         core.info('Trying ImageMagick convert as last resort...');
@@ -134,10 +142,10 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
           path.join(tmpDir, 'img*.png'),
           gifPath
         ].join(' ');
-        
+
         core.info(`Using command: ${convertCmd}`);
         execSync(convertCmd, { stdio: 'inherit', shell: true });
-        
+
         if (fs.existsSync(gifPath)) {
           const stats = fs.statSync(gifPath);
           core.info(`GIF created with ImageMagick at: ${gifPath} (${stats.size} bytes)`);
