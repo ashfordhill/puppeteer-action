@@ -17,80 +17,55 @@ function guessHostIP() {
 }
 
 async function createGifFromScreenshots(folder, base, gifName, frameDuration, scaleWidth) {
-  // List all files in the folder
   const allFiles = fs.readdirSync(folder);
   core.info(`Found ${allFiles.length} total files in ${folder}`);
 
-  // Filter for PNG files matching our pattern
   const files = allFiles
     .filter(f => f.endsWith('.png') && !f.endsWith('-latest.png'))
     .sort();
 
   core.info(`Found ${files.length} PNG files (excluding -latest.png)`);
-
-  // Log all files to help with debugging
-  if (files.length > 0) {
-    core.info(`All PNG files: ${files.join(', ')}`);
-  } else {
-    core.warning(`No PNG files found in the directory.`);
-    if (allFiles.length > 0) {
-      core.info(`Examples of files in directory: ${allFiles.slice(0, Math.min(5, allFiles.length)).join(', ')}`);
-    }
-    return;
-  }
-
   if (files.length < 2) {
     core.warning('Not enough screenshots for a GIF. Need at least 2.');
     return;
   }
 
-  // Create a unique temporary directory
   const timestamp = Date.now();
   const tmpDir = path.join(folder, `__ffmpeg_tmp_${timestamp}__`);
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  // Copy files to temporary directory with sequential names
-  core.info('Copying files to temporary directory...');
+  // Copy files with sequential names and burn timestamp from filename into each
+  core.info('Copying files to temporary directory with burned timestamps...');
   files.forEach((f, i) => {
+    const match = f.match(/_(\d+)\.png$/);
+    let label = '';
+    if (match) {
+      const ts = parseInt(match[1], 10);
+      const d = new Date(ts);
+      label = `${d.getMonth() + 1}-${d.getDate()}-${d.getFullYear()} ${d.toLocaleTimeString()}`;
+    } else {
+      label = 'No timestamp';
+    }
+
     const sourcePath = path.join(folder, f);
     const destPath = path.join(tmpDir, `img${String(i).padStart(4, '0')}.png`);
-    fs.copyFileSync(sourcePath, destPath);
-    core.info(`Copied ${f} to ${path.basename(destPath)}`);
-  });
 
-  // List the files in the temporary directory to confirm
-  const tmpFiles = fs.readdirSync(tmpDir);
-  core.info(`Temporary directory contains ${tmpFiles.length} files: ${tmpFiles.join(', ')}`);
+    execSync(
+      `ffmpeg -y -i "${sourcePath}" -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${label}':x=w-tw-10:y=h-th-10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5" "${destPath}"`,
+      { stdio: 'inherit', shell: true }
+    );
+    core.info(`Processed ${f} -> ${path.basename(destPath)} with label "${label}"`);
+  });
 
   const gifPath = path.join(folder, gifName);
 
-  // Get the timestamp from the first PNG filename
-  const match = files[0].match(/_(\d+)\.png$/);
-  let dateText = '';
-  if (match) {
-    const ts = parseInt(match[1], 10);
-    const d = new Date(ts);
-    dateText = `${d.getMonth() + 1}-${d.getDate()}-${d.getFullYear()}`;
-  } else {
-    core.warning('Could not extract timestamp from filename; falling back to current date.');
-    const today = new Date();
-    dateText = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
-  }
-  // Create a timestamp text in the bottom right corner
-  // fontsize=24: size of the font
-  // x=w-tw-10: position text at width minus text width minus 10px padding
-  // y=h-th-10: position text at height minus text height minus 10px padding
-  const drawtext = `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='${dateText}':x=w-tw-10:y=h-th-10:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5`;
-
   try {
-    // Direct GIF creation method with timestamp
-    core.info('Creating GIF with timestamp...');
     const fps = (1 / parseFloat(frameDuration)).toFixed(2);
     const simpleCmd = [
       'ffmpeg', '-y',
       '-framerate', fps,
       '-i', path.join(tmpDir, 'img%04d.png'),
-      '-vf', `scale=${scaleWidth}:-1:flags=lanczos,${drawtext}`,
+      '-vf', `scale=${scaleWidth}:-1:flags=lanczos`,
       '-loop', '0',
       gifPath
     ].join(' ');
@@ -105,60 +80,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     } else {
       throw new Error('GIF file was not created');
     }
-  } catch (err) {
-    core.warning(`Failed to generate GIF: ${err.message}`);
-
-    // Try without the timestamp if that was the issue
-    try {
-      core.info('Trying without timestamp...');
-      const fallbackCmd = [
-        'ffmpeg', '-y',
-        '-framerate', (1 / parseFloat(frameDuration)).toFixed(2),
-        '-i', path.join(tmpDir, 'img%04d.png'),
-        '-vf', `scale=${scaleWidth}:-1:flags=lanczos`,
-        gifPath
-      ].join(' ');
-
-      core.info(`Using command: ${fallbackCmd}`);
-      execSync(fallbackCmd, { stdio: 'inherit', shell: true });
-
-      if (fs.existsSync(gifPath)) {
-        const stats = fs.statSync(gifPath);
-        core.info(`GIF created without timestamp at: ${gifPath} (${stats.size} bytes)`);
-        core.setOutput('gif_path', gifPath);
-      } else {
-        throw new Error('GIF file was not created');
-      }
-    } catch (fallbackErr) {
-      core.error(`Failed to generate GIF without timestamp: ${fallbackErr.message}`);
-
-      // Last resort: try using imagemagick if available
-      try {
-        core.info('Trying ImageMagick convert as last resort...');
-        const convertCmd = [
-          'convert',
-          '-delay', Math.round(parseFloat(frameDuration) * 100),
-          '-loop', '0',
-          path.join(tmpDir, 'img*.png'),
-          gifPath
-        ].join(' ');
-
-        core.info(`Using command: ${convertCmd}`);
-        execSync(convertCmd, { stdio: 'inherit', shell: true });
-
-        if (fs.existsSync(gifPath)) {
-          const stats = fs.statSync(gifPath);
-          core.info(`GIF created with ImageMagick at: ${gifPath} (${stats.size} bytes)`);
-          core.setOutput('gif_path', gifPath);
-        } else {
-          throw new Error('GIF file was not created');
-        }
-      } catch (imgErr) {
-        core.error(`All GIF creation methods failed. Last error: ${imgErr.message}`);
-      }
-    }
   } finally {
-    // Wait a moment before cleaning up to ensure ffmpeg is done
     setTimeout(() => {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
