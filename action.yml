@@ -32,6 +32,10 @@ inputs:
     description: 'Output width in pixels (height auto-scaled)'
     required: false
     default: '640'
+  auto_screenshots:
+    description: 'Whether to automatically take screenshots (true) or only when commit message contains "#screenshot" (false)'
+    required: false
+    default: 'true'
 
 runs:
   using: 'docker'

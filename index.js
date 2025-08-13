@@ -1,5 +1,6 @@
 // index.js
 const core = require('@actions/core');
+const github = require('@actions/github');
 const puppeteer = require('puppeteer');
 const waitOn = require('wait-on');
 const fs = require('fs');
@@ -13,6 +14,72 @@ function guessHostIP() {
   } catch (e) {
     core.warning(`Could not detect host IP: ${e.message}`);
     return null;
+  }
+}
+
+async function shouldTakeScreenshot(autoScreenshots) {
+  // If auto_screenshots is true, always take screenshots
+  if (autoScreenshots === 'true') {
+    core.info('Auto screenshots enabled - taking screenshot');
+    return true;
+  }
+
+  // If auto_screenshots is false, check commit message for #screenshot
+  core.info('Auto screenshots disabled - checking commit messages for #screenshot');
+  
+  try {
+    // Get the GitHub context
+    const context = github.context;
+    
+    // We need a GitHub token to access the API
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) {
+      core.warning('GITHUB_TOKEN not found. Cannot check commit messages. Skipping screenshot.');
+      return false;
+    }
+
+    const octokit = github.getOctokit(token);
+    
+    // Get recent commits
+    const { data: commits } = await octokit.rest.repos.listCommits({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      per_page: 10 // Check last 10 commits
+    });
+
+    // Look for the latest commit that wasn't from GitHub Actions bot
+    for (const commit of commits) {
+      const author = commit.author?.login || commit.commit.author?.name || '';
+      const committer = commit.committer?.login || commit.commit.committer?.name || '';
+      
+      // Skip commits from GitHub Actions bot
+      if (author.includes('github-actions') || 
+          committer.includes('github-actions') ||
+          author.includes('[bot]') ||
+          committer.includes('[bot]')) {
+        core.info(`Skipping bot commit: ${commit.sha.substring(0, 7)} - ${commit.commit.message.split('\n')[0]}`);
+        continue;
+      }
+
+      // Check if this commit message contains #screenshot
+      const message = commit.commit.message;
+      core.info(`Checking commit ${commit.sha.substring(0, 7)}: ${message.split('\n')[0]}`);
+      
+      if (message.includes('#screenshot')) {
+        core.info('Found #screenshot in commit message - taking screenshot');
+        return true;
+      } else {
+        core.info('No #screenshot found in latest non-bot commit - skipping screenshot');
+        return false;
+      }
+    }
+
+    core.info('No non-bot commits found in recent history - skipping screenshot');
+    return false;
+    
+  } catch (error) {
+    core.warning(`Error checking commit messages: ${error.message}. Skipping screenshot.`);
+    return false;
   }
 }
 
@@ -104,6 +171,14 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     const gifName = core.getInput('gif_name');
     const frameDuration = core.getInput('frame_duration'); // seconds per frame
     const scaleWidth = core.getInput('scale_width');
+    const autoScreenshots = core.getInput('auto_screenshots');
+
+    // Check if we should take a screenshot
+    const shouldRun = await shouldTakeScreenshot(autoScreenshots);
+    if (!shouldRun) {
+      core.info('Skipping screenshot based on auto_screenshots setting and commit message check');
+      return;
+    }
 
     let rawUrl = core.getInput('url');
     if (rawUrl.includes('localhost')) {
