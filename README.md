@@ -1,6 +1,19 @@
 # Puppeteer GitHub Action
 
+<div align="center" style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;">
+  <img src="doc/timeline.gif" alt="EXAMPLE_GIF" width="300" style="margin:0 8px;" />
+  <img src="doc/screenshot-latest.png" alt="EXAMPLE_PNG" width="300" style="margin:0 8px;" />
+</div>
+
+#
+
+<div align ="center"><a href="https://github.com/ashfordhill/ashhill.dev/blob/main/.github/workflows/puppeteer.yml">Used in this repo</a></div>
+
+#
+
+
 A GitHub Action to screenshot any URL with a timestamp.
+
 An animated GIF can be optionally created from a series of screenshots.
 
 ## Inputs
@@ -14,28 +27,7 @@ An animated GIF can be optionally created from a series of screenshots.
 | `gif_name`       | No       | `timeline.gif` | Output GIF name (e.g., `timeline.gif`).                                    |
 | `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
 | `scale_width`    | No       | `640`          | Width of the output GIF in pixels (height auto-scales).                    |
-| `auto_screenshots` | No     | `true`         | Control screenshot behavior: `true` = always take screenshots, `false` = only when commit message contains `#screenshot`. |
-
-
-## Auto Screenshots Feature
-
-The `auto_screenshots` input allows you to control when screenshots are taken:
-
-- **`true` (default)**: Screenshots are always taken when the action runs
-- **`false`**: Screenshots are only taken when the latest non-bot commit message contains `#screenshot`
-
-When `auto_screenshots` is set to `false`, the action will:
-1. Look through recent commit history (last 10 commits)
-2. Find the most recent commit that wasn't made by GitHub Actions bot or other bots
-3. Check if that commit message contains `#screenshot`
-4. Only take a screenshot if `#screenshot` is found
-
-This is useful for:
-- Reducing unnecessary screenshots on every commit
-- Only capturing visual changes when explicitly requested
-- Saving on action runtime and storage
-
-**Note**: When using `auto_screenshots: false`, you must provide a `GITHUB_TOKEN` environment variable so the action can access commit history.
+| `auto_screenshots` | No     | `true`         | Control screenshot behavior: `true` = always take screenshots, `false` = only when most recent commit message contains `#screenshot`. |
 
 ## Setup
 
@@ -44,9 +36,7 @@ To allow GitHub Actions to commit files, you need to set the following permissio
 
 ![](doc/read-write-settings.png)
 
-## Example Workflows
-
-### Basic Usage (Always Take Screenshots)
+## Example Workflow
 
 ``` yaml
 name: Screenshot and GIF Generator
@@ -59,7 +49,7 @@ jobs:
     
     steps:
       - name: Take and save visual screenshot
-        uses: ashfordhill/puppeteer-action@v1
+        uses: ashfordhill/puppeteer-action@v5
         with:
           url: http://localhost:3000
           folder: timeline
@@ -68,7 +58,8 @@ jobs:
           gif_name: timeline.gif
           frame_duration: 1
           scale_width: 640
-          auto_screenshots: true  # Default behavior
+          # Set to false if wanting action only when #screenshot in latest commit
+          auto_screenshots: true  
 
       # 'git add -A' assumes your .gitignore is set in a way that these are the only unstaged changes. Otherwise specify the folder name used above, for 'git add'.
       - name: Commit screenshots
@@ -80,58 +71,20 @@ jobs:
           git push origin HEAD:${{ github.ref }}
 ```
 
-### Conditional Screenshots (Only When Requested)
+**Usage with "auto_screenshots: false"**
 
-``` yaml
-name: Conditional Screenshot Generator
-
-on: [push, pull_request]
-
-jobs:
-  conditional-screenshot:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 10  # Fetch recent commits for history check
-          
-      - name: Take screenshot only when requested
-        uses: ashfordhill/puppeteer-action@v1
-        with:
-          url: http://localhost:3000
-          folder: timeline
-          basename: screenshot
-          make_gif: true
-          gif_name: timeline.gif
-          auto_screenshots: false  # Only take screenshots when commit contains #screenshot
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required for commit history access
-
-      - name: Commit screenshots (if any were taken)
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          git add -A
-          git commit -m "Add/update visual screenshots [skip ci]" || echo "No changes to commit"
-          git push origin HEAD:${{ github.ref }}
-```
-
-**Usage with conditional mode**: To trigger a screenshot, include `#screenshot` in your commit message:
+To trigger a screenshot with this setting, include `#screenshot` in your commit message:
 ```bash
 git commit -m "Update homepage layout #screenshot"
 ```
 
+## Future Considerations
 
-### Commentary
+- Multi-URL screenshots
+  - Include additional URLs to visit and screenshot, in order of their listing. 
+  - For the GIF creation feature, may want to store screenshots by folder per-URL to keep them in separate GIFs
 
-## Annoyances with Node.JS Workflows, per GPT:
+- Multi-element screenshots
+  - Take in configurable `n` amount of elements for Puppeteer to click on. May need delay settings as well.
 
-> Yeah, I get your frustration—you're not alone!
-This is one of the few rough edges in GitHub Actions:
-Node.js (JavaScript) actions can only use what is already installed in the runner’s environment.
-If your action needs a tool like ffmpeg that isn’t guaranteed to be present, the user has to install it in their workflow.
-
-**Resolution**: This was converted to be a 'Docker action' by submitting Dockerfile and using that as the environment for the Action instead of 'ubuntu-latest'.
-
+- Mobile view/configurable layout view screenshots 
