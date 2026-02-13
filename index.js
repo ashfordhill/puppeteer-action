@@ -269,10 +269,12 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 
       // Handle requested formats
       for (const format of videoFormats) {
+        let finalPath = '';
         if (format === 'mp4') {
           const stats = fs.statSync(videoPath);
           core.info(`MP4 video ready: ${videoPath} (${stats.size} bytes)`);
           core.setOutput('video_path', videoPath);
+          finalPath = videoPath;
         } else if (format === 'gif') {
           core.info('Converting to high-quality GIF...');
           const videoGifPath = path.join(folder, `${videoName}_${timestamp}.gif`);
@@ -288,6 +290,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
               const gifStats = fs.statSync(videoGifPath);
               core.info(`Video GIF created: ${videoGifPath} (${gifStats.size} bytes)`);
               core.setOutput('video_gif_path', videoGifPath);
+              finalPath = videoGifPath;
             }
             if (fs.existsSync(palettePath)) fs.unlinkSync(palettePath);
           } catch (gifErr) {
@@ -302,10 +305,19 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
             if (fs.existsSync(outputPath)) {
               core.info(`${format.toUpperCase()} created: ${outputPath}`);
               core.setOutput(`video_${format}_path`, outputPath);
+              finalPath = outputPath;
             }
           } catch (err) {
             core.error(`Error converting to ${format}: ${err.message}`);
           }
+        }
+
+        // Create -latest version for this format
+        if (finalPath && fs.existsSync(finalPath)) {
+          const latestVideoPath = path.join(folder, `${videoName}-latest.${format}`);
+          fs.copyFileSync(finalPath, latestVideoPath);
+          core.info(`Updated latest ${format}: ${latestVideoPath}`);
+          core.setOutput(`latest_video_${format}_path`, latestVideoPath);
         }
       }
 
