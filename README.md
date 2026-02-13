@@ -52,8 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Take and save visual screenshot
-        uses: ashfordhill/puppeteer-action@v5
+      - name: Take and save visual records
+        uses: ashfordhill/puppeteer-action@v8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           url: http://localhost:3000
           folder: timeline
@@ -72,6 +74,8 @@ jobs:
 
       # 'git add -A' assumes your .gitignore is set in a way that these are the only unstaged changes. Otherwise specify the folder name used above, for 'git add'.
       - name: Commit screenshots
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
