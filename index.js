@@ -2,6 +2,7 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const puppeteer = require('puppeteer');
+const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder');
 const waitOn = require('wait-on');
 const fs = require('fs');
 const path = require('path');
@@ -166,12 +167,20 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 (async () => {
   try {
     const folder = core.getInput('folder');
-    const basename = core.getInput('basename');
+    const basename = core.getInput('base_screenshot_name');
     const makeGif = core.getInput('make_gif') === 'true';
     const gifName = core.getInput('gif_name');
     const frameDuration = core.getInput('frame_duration'); // seconds per frame
     const scaleWidth = core.getInput('scale_width');
     const autoScreenshots = core.getInput('auto_screenshots');
+    
+    const videoFormatInput = core.getInput('video_format').toLowerCase();
+    const videoFormats = videoFormatInput === 'none' ? [] : videoFormatInput.split(',').map(f => f.trim());
+    const makeVideo = videoFormats.length > 0;
+    
+    const videoDuration = parseInt(core.getInput('video_duration'), 10);
+    const videoSpeed = parseFloat(core.getInput('video_speed_seconds'));
+    const videoName = core.getInput('base_video_name');
 
     // Check if we should take a screenshot
     const shouldRun = await shouldTakeScreenshot(autoScreenshots);
@@ -199,32 +208,142 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 
     fs.mkdirSync(folder, { recursive: true });
 
+    core.info('Launching browser...');
     const browser = await puppeteer.launch({
       defaultViewport: { width: 1920, height: 1080 },
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
+    
+    core.info(`Navigating to ${url}...`);
+    // Using 'load' instead of 'networkidle2' to avoid timeouts on pages with persistent connections
+    await page.goto(url, { waitUntil: 'load', timeout: 120000 });
+    core.info('Page loaded successfully.');
 
     const timestamp = Date.now();
     const file = `${basename}_${timestamp}.png`;
     const filePath = path.join(folder, file);
+    core.info(`Taking screenshot: ${filePath}`);
     await page.screenshot({ path: filePath });
 
     const latestPath = path.join(folder, `${basename}-latest.png`);
     fs.copyFileSync(filePath, latestPath);
+    core.info(`Updated latest screenshot: ${latestPath}`);
+
+    if (makeVideo) {
+      core.info('--- Video Recording Started ---');
+      const videoFile = `${videoName}_${timestamp}.mp4`;
+      const videoPath = path.join(folder, videoFile);
+      const recorder = new PuppeteerScreenRecorder(page);
+      
+      core.info(`Video settings: duration=${videoDuration}s, speed_multiplier=${videoSpeed}x`);
+      core.info(`Output path: ${videoPath}`);
+      
+      await recorder.start(videoPath);
+      core.info(`Recording in progress for ${videoDuration} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, videoDuration * 1000));
+      
+      core.info('Stopping recorder...');
+      await recorder.stop();
+      core.info('Recorder stopped.');
+
+      if (videoSpeed !== 1) {
+        core.info(`Processing video speed change to ${videoSpeed}x...`);
+        const spedUpFile = `${videoName}_${timestamp}_processed.mp4`;
+        const spedUpPath = path.join(folder, spedUpFile);
+        const ptsValue = (1 / videoSpeed).toFixed(4);
+        const speedCmd = `ffmpeg -y -i "${videoPath}" -vf "setpts=${ptsValue}*PTS" -an "${spedUpPath}"`;
+        
+        core.info(`Executing FFmpeg: ${speedCmd}`);
+        try {
+          execSync(speedCmd, { stdio: 'inherit', shell: true });
+          if (fs.existsSync(spedUpPath)) {
+            core.info('Speed adjustment successful. Replacing original file.');
+            fs.renameSync(spedUpPath, videoPath);
+          }
+        } catch (ffmpegErr) {
+          core.error(`FFmpeg error during speed adjustment: ${ffmpegErr.message}`);
+        }
+      }
+
+      // Handle requested formats
+      for (const format of videoFormats) {
+        let finalPath = '';
+        if (format === 'mp4') {
+          const stats = fs.statSync(videoPath);
+          core.info(`MP4 video ready: ${videoPath} (${stats.size} bytes)`);
+          core.setOutput('video_path', videoPath);
+          finalPath = videoPath;
+        } else if (format === 'gif') {
+          core.info('Converting to high-quality GIF...');
+          const videoGifPath = path.join(folder, `${videoName}_${timestamp}.gif`);
+          const palettePath = path.join(folder, 'palette.png');
+          
+          const paletteCmd = `ffmpeg -y -i "${videoPath}" -vf "fps=15,scale=${scaleWidth}:-1:flags=lanczos,palettegen" "${palettePath}"`;
+          const gifCmd = `ffmpeg -y -i "${videoPath}" -i "${palettePath}" -lavfi "fps=15,scale=${scaleWidth}:-1:flags=lanczos [x]; [x][1:v] paletteuse" "${videoGifPath}"`;
+
+          try {
+            execSync(paletteCmd, { stdio: 'inherit', shell: true });
+            execSync(gifCmd, { stdio: 'inherit', shell: true });
+            if (fs.existsSync(videoGifPath)) {
+              const gifStats = fs.statSync(videoGifPath);
+              core.info(`Video GIF created: ${videoGifPath} (${gifStats.size} bytes)`);
+              core.setOutput('video_gif_path', videoGifPath);
+              finalPath = videoGifPath;
+            }
+            if (fs.existsSync(palettePath)) fs.unlinkSync(palettePath);
+          } catch (gifErr) {
+            core.error(`Error converting to GIF: ${gifErr.message}`);
+          }
+        } else {
+          // Generic conversion for other formats
+          core.info(`Converting to ${format}...`);
+          const outputPath = path.join(folder, `${videoName}_${timestamp}.${format}`);
+          try {
+            execSync(`ffmpeg -y -i "${videoPath}" "${outputPath}"`, { stdio: 'inherit', shell: true });
+            if (fs.existsSync(outputPath)) {
+              core.info(`${format.toUpperCase()} created: ${outputPath}`);
+              core.setOutput(`video_${format}_path`, outputPath);
+              finalPath = outputPath;
+            }
+          } catch (err) {
+            core.error(`Error converting to ${format}: ${err.message}`);
+          }
+        }
+
+        // Create -latest version for this format
+        if (finalPath && fs.existsSync(finalPath)) {
+          const latestVideoPath = path.join(folder, `${videoName}-latest.${format}`);
+          fs.copyFileSync(finalPath, latestVideoPath);
+          core.info(`Updated latest ${format}: ${latestVideoPath}`);
+          core.setOutput(`latest_video_${format}_path`, latestVideoPath);
+        }
+      }
+
+      // If mp4 was NOT explicitly requested, delete the intermediate mp4 file
+      if (!videoFormats.includes('mp4')) {
+        core.info('Cleaning up intermediate MP4 file...');
+        if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+      }
+
+      core.info('--- Video Recording Finished ---');
+    }
 
     await browser.close();
+    core.info('Browser closed.');
 
-    core.info(`Screenshot saved as ${filePath} and updated ${latestPath}`);
     core.setOutput('screenshot_path', filePath);
     core.setOutput('latest_path', latestPath);
 
     if (makeGif) {
+      core.info('Creating animated GIF...');
       await createGifFromScreenshots(folder, basename, gifName, frameDuration, scaleWidth);
     }
   } catch (error) {
-    core.setFailed(error.message);
+    core.setFailed(`Action failed with error: ${error.message}`);
+    if (error.stack) {
+      core.debug(error.stack);
+    }
   }
 })();

@@ -14,20 +14,24 @@
 
 A GitHub Action to screenshot any URL with a timestamp.
 
-An animated GIF can be optionally created from a series of screenshots.
+An animated GIF or video can be optionally created from the page.
 
 ## Inputs
 
 | Name             | Required | Default        | Description                                                                |
 | ---------------- | -------- | -------------- | -------------------------------------------------------------------------- |
-| `url`            | Yes      | *(none)*       | The URL to screenshot.                                                     |
-| `folder`         | Yes      | `timeline`     | The folder to save screenshots (and the output GIF) in.                    |
-| `basename`       | Yes      | `screenshot`   | The base name for the screenshot files (e.g., `screenshot_123456.png`).    |
-| `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots (`true` or `false`).  |
-| `gif_name`       | No       | `timeline.gif` | Output GIF name (e.g., `timeline.gif`).                                    |
+| `url`            | Yes      | *(none)*       | The URL to screenshot or record.                                           |
+| `folder`         | Yes      | `timeline`     | The folder to save outputs in.                                             |
+| `base_screenshot_name` | Yes | `screenshot`  | The base name for the screenshot files.                                    |
+| `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots.                      |
+| `gif_name`       | No       | `timeline.gif` | Output GIF name.                                                           |
 | `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
 | `scale_width`    | No       | `640`          | Width of the output GIF in pixels (height auto-scales).                    |
-| `auto_screenshots` | No     | `true`         | Control screenshot behavior: `true` = always take screenshots, `false` = only when most recent commit message contains `#screenshot`. |
+| `auto_screenshots` | No     | `true`         | `true` = always take screenshots, `false` = only when commit message contains `#screenshot`. |
+| `video_format`     | No       | `none`         | Output format(s) for the video. Options: `mp4`, `gif`, or `mp4,gif`. Set to `none` to disable. |
+| `video_duration` | No       | `10`           | Duration to record video in seconds.                                       |
+| `video_speed_seconds` | No  | `1`            | Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower).   |
+| `base_video_name` | No      | `video`        | Base name for the video file (extension added automatically).              |
 
 ## Setup
 
@@ -48,21 +52,29 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Take and save visual screenshot
-        uses: ashfordhill/puppeteer-action@v5
+      - name: Capture and save visual records
+        uses: ashfordhill/puppeteer-action@v8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           url: http://localhost:3000
           folder: timeline
-          basename: screenshot
+          base_screenshot_name: screenshot
           make_gif: true
           gif_name: timeline.gif
           frame_duration: 1
           scale_width: 640
-          # Set to false if wanting action only when #screenshot in latest commit
+          # Set to false if wanting action only when '#screenshot' in latest commit
           auto_screenshots: true  
+          # Video recording settings
+          video_format: mp4,gif
+          video_duration: 10
+          video_speed_seconds: 2
+          base_video_name: video
 
-      # 'git add -A' assumes your .gitignore is set in a way that these are the only unstaged changes. Otherwise specify the folder name used above, for 'git add'.
-      - name: Commit screenshots
+      - name: Commit visual records
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
