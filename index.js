@@ -173,7 +173,11 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     const frameDuration = core.getInput('frame_duration'); // seconds per frame
     const scaleWidth = core.getInput('scale_width');
     const autoScreenshots = core.getInput('auto_screenshots');
-    const makeVideo = core.getInput('make_video') === 'true';
+    
+    const videoFormatInput = core.getInput('video_format').toLowerCase();
+    const videoFormats = videoFormatInput === 'none' ? [] : videoFormatInput.split(',').map(f => f.trim());
+    const makeVideo = videoFormats.length > 0;
+    
     const videoDuration = parseInt(core.getInput('video_duration'), 10);
     const videoSpeed = parseFloat(core.getInput('video_speed_seconds'));
     const videoName = core.getInput('base_video_name');
@@ -248,8 +252,6 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
         core.info(`Processing video speed change to ${videoSpeed}x...`);
         const spedUpFile = `${videoName}_${timestamp}_processed.mp4`;
         const spedUpPath = path.join(folder, spedUpFile);
-        
-        // pts multiplier is 1/speed: e.g. speed=2 -> pts*0.5 (faster), speed=0.5 -> pts*2 (slower)
         const ptsValue = (1 / videoSpeed).toFixed(4);
         const speedCmd = `ffmpeg -y -i "${videoPath}" -vf "setpts=${ptsValue}*PTS" -an "${spedUpPath}"`;
         
@@ -259,17 +261,60 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
           if (fs.existsSync(spedUpPath)) {
             core.info('Speed adjustment successful. Replacing original file.');
             fs.renameSync(spedUpPath, videoPath);
-          } else {
-            core.warning('FFmpeg completed but processed file not found. Keeping original.');
           }
         } catch (ffmpegErr) {
           core.error(`FFmpeg error during speed adjustment: ${ffmpegErr.message}`);
         }
       }
 
-      const finalStats = fs.statSync(videoPath);
-      core.info(`Video recording complete: ${videoPath} (${finalStats.size} bytes)`);
-      core.setOutput('video_path', videoPath);
+      // Handle requested formats
+      for (const format of videoFormats) {
+        if (format === 'mp4') {
+          const stats = fs.statSync(videoPath);
+          core.info(`MP4 video ready: ${videoPath} (${stats.size} bytes)`);
+          core.setOutput('video_path', videoPath);
+        } else if (format === 'gif') {
+          core.info('Converting to high-quality GIF...');
+          const videoGifPath = path.join(folder, `${videoName}_${timestamp}.gif`);
+          const palettePath = path.join(folder, 'palette.png');
+          
+          const paletteCmd = `ffmpeg -y -i "${videoPath}" -vf "fps=15,scale=${scaleWidth}:-1:flags=lanczos,palettegen" "${palettePath}"`;
+          const gifCmd = `ffmpeg -y -i "${videoPath}" -i "${palettePath}" -lavfi "fps=15,scale=${scaleWidth}:-1:flags=lanczos [x]; [x][1:v] paletteuse" "${videoGifPath}"`;
+
+          try {
+            execSync(paletteCmd, { stdio: 'inherit', shell: true });
+            execSync(gifCmd, { stdio: 'inherit', shell: true });
+            if (fs.existsSync(videoGifPath)) {
+              const gifStats = fs.statSync(videoGifPath);
+              core.info(`Video GIF created: ${videoGifPath} (${gifStats.size} bytes)`);
+              core.setOutput('video_gif_path', videoGifPath);
+            }
+            if (fs.existsSync(palettePath)) fs.unlinkSync(palettePath);
+          } catch (gifErr) {
+            core.error(`Error converting to GIF: ${gifErr.message}`);
+          }
+        } else {
+          // Generic conversion for other formats
+          core.info(`Converting to ${format}...`);
+          const outputPath = path.join(folder, `${videoName}_${timestamp}.${format}`);
+          try {
+            execSync(`ffmpeg -y -i "${videoPath}" "${outputPath}"`, { stdio: 'inherit', shell: true });
+            if (fs.existsSync(outputPath)) {
+              core.info(`${format.toUpperCase()} created: ${outputPath}`);
+              core.setOutput(`video_${format}_path`, outputPath);
+            }
+          } catch (err) {
+            core.error(`Error converting to ${format}: ${err.message}`);
+          }
+        }
+      }
+
+      // If mp4 was NOT explicitly requested, delete the intermediate mp4 file
+      if (!videoFormats.includes('mp4')) {
+        core.info('Cleaning up intermediate MP4 file...');
+        if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+      }
+
       core.info('--- Video Recording Finished ---');
     }
 

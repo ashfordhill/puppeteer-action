@@ -36,10 +36,10 @@ inputs:
     description: 'Whether to automatically take screenshots (true) or only when commit message contains "#screenshot" (false)'
     required: false
     default: 'true'
-  make_video:
-    description: 'Whether to record a video of the page'
+  video_format:
+    description: 'Output format(s) for the video. Options: mp4, gif, or "mp4,gif". Set to "none" to disable.'
     required: false
-    default: 'false'
+    default: 'none'
   video_duration:
     description: 'Duration to record video in seconds'
     required: false
@@ -49,7 +49,7 @@ inputs:
     required: false
     default: '1'
   base_video_name:
-    description: 'Base name for the video file'
+    description: 'Base name for the video file (extension added automatically)'
     required: false
     default: 'video'
 

@@ -28,10 +28,10 @@ An animated GIF or video can be optionally created from the page.
 | `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
 | `scale_width`    | No       | `640`          | Width of the output GIF in pixels (height auto-scales).                    |
 | `auto_screenshots` | No     | `true`         | `true` = always take screenshots, `false` = only when commit message contains `#screenshot`. |
-| `make_video`     | No       | `false`        | Whether to record a video of the page.                                     |
+| `video_format`     | No       | `none`         | Output format(s) for the video. Options: `mp4`, `gif`, or `mp4,gif`. Set to `none` to disable. |
 | `video_duration` | No       | `10`           | Duration to record video in seconds.                                       |
 | `video_speed_seconds` | No  | `1`            | Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower).   |
-| `base_video_name` | No      | `video`        | Base name for the video file.                                              |
+| `base_video_name` | No      | `video`        | Base name for the video file (extension added automatically).              |
 
 ## Setup
 
@@ -67,7 +67,7 @@ jobs:
           # Set to false if wanting action only when '#screenshot' in latest commit
           auto_screenshots: true  
           # Video recording settings
-          make_video: true
+          video_format: mp4,gif
           video_duration: 10
           video_speed_seconds: 2
           base_video_name: video
