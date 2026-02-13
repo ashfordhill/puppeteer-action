@@ -2,6 +2,7 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const puppeteer = require('puppeteer');
+const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder');
 const waitOn = require('wait-on');
 const fs = require('fs');
 const path = require('path');
@@ -172,6 +173,10 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     const frameDuration = core.getInput('frame_duration'); // seconds per frame
     const scaleWidth = core.getInput('scale_width');
     const autoScreenshots = core.getInput('auto_screenshots');
+    const makeVideo = core.getInput('make_video') === 'true';
+    const videoDuration = parseInt(core.getInput('video_duration'), 10);
+    const videoSpeed = parseFloat(core.getInput('video_speed'));
+    const videoName = core.getInput('video_name');
 
     // Check if we should take a screenshot
     const shouldRun = await shouldTakeScreenshot(autoScreenshots);
@@ -214,6 +219,29 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 
     const latestPath = path.join(folder, `${basename}-latest.png`);
     fs.copyFileSync(filePath, latestPath);
+
+    if (makeVideo) {
+      const videoFile = `${videoName}_${timestamp}.mp4`;
+      const videoPath = path.join(folder, videoFile);
+      const recorder = new PuppeteerScreenRecorder(page);
+      core.info(`Starting video recording: ${videoPath}`);
+      await recorder.start(videoPath);
+      core.info(`Recording for ${videoDuration} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, videoDuration * 1000));
+      await recorder.stop();
+
+      if (videoSpeed !== 1) {
+        const spedUpFile = `${videoName}_${timestamp}_speedup.mp4`;
+        const spedUpPath = path.join(folder, spedUpFile);
+        const speedCmd = `ffmpeg -y -i "${videoPath}" -vf "setpts=${1 / videoSpeed}*PTS" -an "${spedUpPath}"`;
+        core.info(`Applying speed up (${videoSpeed}x): ${speedCmd}`);
+        execSync(speedCmd, { stdio: 'inherit', shell: true });
+        fs.renameSync(spedUpPath, videoPath);
+      }
+
+      core.info(`Video saved as ${videoPath}`);
+      core.setOutput('video_path', videoPath);
+    }
 
     await browser.close();
 

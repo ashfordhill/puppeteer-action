@@ -14,20 +14,24 @@
 
 A GitHub Action to screenshot any URL with a timestamp.
 
-An animated GIF can be optionally created from a series of screenshots.
+An animated GIF or video can be optionally created from the page.
 
 ## Inputs
 
 | Name             | Required | Default        | Description                                                                |
 | ---------------- | -------- | -------------- | -------------------------------------------------------------------------- |
-| `url`            | Yes      | *(none)*       | The URL to screenshot.                                                     |
-| `folder`         | Yes      | `timeline`     | The folder to save screenshots (and the output GIF) in.                    |
-| `basename`       | Yes      | `screenshot`   | The base name for the screenshot files (e.g., `screenshot_123456.png`).    |
-| `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots (`true` or `false`).  |
-| `gif_name`       | No       | `timeline.gif` | Output GIF name (e.g., `timeline.gif`).                                    |
+| `url`            | Yes      | *(none)*       | The URL to screenshot or record.                                           |
+| `folder`         | Yes      | `timeline`     | The folder to save outputs in.                                             |
+| `basename`       | Yes      | `screenshot`   | The base name for the screenshot files.                                    |
+| `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots.                      |
+| `gif_name`       | No       | `timeline.gif` | Output GIF name.                                                           |
 | `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
 | `scale_width`    | No       | `640`          | Width of the output GIF in pixels (height auto-scales).                    |
-| `auto_screenshots` | No     | `true`         | Control screenshot behavior: `true` = always take screenshots, `false` = only when most recent commit message contains `#screenshot`. |
+| `auto_screenshots` | No     | `true`         | `true` = always take screenshots, `false` = only when commit message contains `#screenshot`. |
+| `make_video`     | No       | `false`        | Whether to record a video of the page.                                     |
+| `video_duration` | No       | `10`           | Duration to record video in seconds.                                       |
+| `video_speed`    | No       | `1`            | Speed up factor for the video (e.g., 2 for 2x speed).                      |
+| `video_name`     | No       | `video`        | Base name for the video file.                                              |
 
 ## Setup
 
@@ -60,6 +64,11 @@ jobs:
           scale_width: 640
           # Set to false if wanting action only when #screenshot in latest commit
           auto_screenshots: true  
+          # Video recording settings
+          make_video: true
+          video_duration: 10
+          video_speed: 2
+          video_name: record
 
       # 'git add -A' assumes your .gitignore is set in a way that these are the only unstaged changes. Otherwise specify the folder name used above, for 'git add'.
       - name: Commit screenshots

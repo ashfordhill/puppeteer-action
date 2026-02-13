@@ -36,6 +36,22 @@ inputs:
     description: 'Whether to automatically take screenshots (true) or only when commit message contains "#screenshot" (false)'
     required: false
     default: 'true'
+  make_video:
+    description: 'Whether to record a video of the page'
+    required: false
+    default: 'false'
+  video_duration:
+    description: 'Duration to record video in seconds'
+    required: false
+    default: '10'
+  video_speed:
+    description: 'Speed up factor for the video (e.g., 2 for 2x speed)'
+    required: false
+    default: '1'
+  video_name:
+    description: 'Base name for the video file'
+    required: false
+    default: 'video'
 
 runs:
   using: 'docker'
