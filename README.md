@@ -70,7 +70,7 @@ jobs:
           make_video: true
           video_duration: 10
           video_speed_seconds: 2
-          base_video_name: record
+          base_video_name: video
 
       - name: Commit visual records
         env:
