@@ -22,7 +22,7 @@ An animated GIF or video can be optionally created from the page.
 | ---------------- | -------- | -------------- | -------------------------------------------------------------------------- |
 | `url`            | Yes      | *(none)*       | The URL to screenshot or record.                                           |
 | `folder`         | Yes      | `timeline`     | The folder to save outputs in.                                             |
-| `basename`       | Yes      | `screenshot`   | The base name for the screenshot files.                                    |
+| `base_screenshot_name` | Yes | `screenshot`  | The base name for the screenshot files.                                    |
 | `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots.                      |
 | `gif_name`       | No       | `timeline.gif` | Output GIF name.                                                           |
 | `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
@@ -30,8 +30,8 @@ An animated GIF or video can be optionally created from the page.
 | `auto_screenshots` | No     | `true`         | `true` = always take screenshots, `false` = only when commit message contains `#screenshot`. |
 | `make_video`     | No       | `false`        | Whether to record a video of the page.                                     |
 | `video_duration` | No       | `10`           | Duration to record video in seconds.                                       |
-| `video_speed`    | No       | `1`            | Speed up factor for the video (e.g., 2 for 2x speed).                      |
-| `video_name`     | No       | `video`        | Base name for the video file.                                              |
+| `video_speed_seconds` | No  | `1`            | Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower).   |
+| `base_video_name` | No      | `video`        | Base name for the video file.                                              |
 
 ## Setup
 
@@ -52,28 +52,27 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Take and save visual records
+      - name: Capture and save visual records
         uses: ashfordhill/puppeteer-action@v8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           url: http://localhost:3000
           folder: timeline
-          basename: screenshot
+          base_screenshot_name: screenshot
           make_gif: true
           gif_name: timeline.gif
           frame_duration: 1
           scale_width: 640
-          # Set to false if wanting action only when #screenshot in latest commit
+          # Set to false if wanting action only when '#screenshot' in latest commit
           auto_screenshots: true  
           # Video recording settings
           make_video: true
           video_duration: 10
-          video_speed: 2
-          video_name: record
+          video_speed_seconds: 2
+          base_video_name: record
 
-      # 'git add -A' assumes your .gitignore is set in a way that these are the only unstaged changes. Otherwise specify the folder name used above, for 'git add'.
-      - name: Commit screenshots
+      - name: Commit visual records
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

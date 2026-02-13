@@ -12,7 +12,7 @@ inputs:
     description: 'The folder to save outputs in'
     required: true
     default: 'timeline'
-  basename:
+  base_screenshot_name:
     description: 'Base name for screenshots (e.g., "screenshot")'
     required: true
     default: 'screenshot'
@@ -44,11 +44,11 @@ inputs:
     description: 'Duration to record video in seconds'
     required: false
     default: '10'
-  video_speed:
-    description: 'Speed up factor for the video (e.g., 2 for 2x speed)'
+  video_speed_seconds:
+    description: 'Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower)'
     required: false
     default: '1'
-  video_name:
+  base_video_name:
     description: 'Base name for the video file'
     required: false
     default: 'video'

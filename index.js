@@ -167,7 +167,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 (async () => {
   try {
     const folder = core.getInput('folder');
-    const basename = core.getInput('basename');
+    const basename = core.getInput('base_screenshot_name');
     const makeGif = core.getInput('make_gif') === 'true';
     const gifName = core.getInput('gif_name');
     const frameDuration = core.getInput('frame_duration'); // seconds per frame
@@ -175,8 +175,8 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     const autoScreenshots = core.getInput('auto_screenshots');
     const makeVideo = core.getInput('make_video') === 'true';
     const videoDuration = parseInt(core.getInput('video_duration'), 10);
-    const videoSpeed = parseFloat(core.getInput('video_speed'));
-    const videoName = core.getInput('video_name');
+    const videoSpeed = parseFloat(core.getInput('video_speed_seconds'));
+    const videoName = core.getInput('base_video_name');
 
     // Check if we should take a screenshot
     const shouldRun = await shouldTakeScreenshot(autoScreenshots);
@@ -204,55 +204,89 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 
     fs.mkdirSync(folder, { recursive: true });
 
+    core.info('Launching browser...');
     const browser = await puppeteer.launch({
       defaultViewport: { width: 1920, height: 1080 },
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
+    
+    core.info(`Navigating to ${url}...`);
+    // Using 'load' instead of 'networkidle2' to avoid timeouts on pages with persistent connections
+    await page.goto(url, { waitUntil: 'load', timeout: 120000 });
+    core.info('Page loaded successfully.');
 
     const timestamp = Date.now();
     const file = `${basename}_${timestamp}.png`;
     const filePath = path.join(folder, file);
+    core.info(`Taking screenshot: ${filePath}`);
     await page.screenshot({ path: filePath });
 
     const latestPath = path.join(folder, `${basename}-latest.png`);
     fs.copyFileSync(filePath, latestPath);
+    core.info(`Updated latest screenshot: ${latestPath}`);
 
     if (makeVideo) {
+      core.info('--- Video Recording Started ---');
       const videoFile = `${videoName}_${timestamp}.mp4`;
       const videoPath = path.join(folder, videoFile);
       const recorder = new PuppeteerScreenRecorder(page);
-      core.info(`Starting video recording: ${videoPath}`);
+      
+      core.info(`Video settings: duration=${videoDuration}s, speed_multiplier=${videoSpeed}x`);
+      core.info(`Output path: ${videoPath}`);
+      
       await recorder.start(videoPath);
-      core.info(`Recording for ${videoDuration} seconds...`);
+      core.info(`Recording in progress for ${videoDuration} seconds...`);
       await new Promise(resolve => setTimeout(resolve, videoDuration * 1000));
+      
+      core.info('Stopping recorder...');
       await recorder.stop();
+      core.info('Recorder stopped.');
 
       if (videoSpeed !== 1) {
-        const spedUpFile = `${videoName}_${timestamp}_speedup.mp4`;
+        core.info(`Processing video speed change to ${videoSpeed}x...`);
+        const spedUpFile = `${videoName}_${timestamp}_processed.mp4`;
         const spedUpPath = path.join(folder, spedUpFile);
-        const speedCmd = `ffmpeg -y -i "${videoPath}" -vf "setpts=${1 / videoSpeed}*PTS" -an "${spedUpPath}"`;
-        core.info(`Applying speed up (${videoSpeed}x): ${speedCmd}`);
-        execSync(speedCmd, { stdio: 'inherit', shell: true });
-        fs.renameSync(spedUpPath, videoPath);
+        
+        // pts multiplier is 1/speed: e.g. speed=2 -> pts*0.5 (faster), speed=0.5 -> pts*2 (slower)
+        const ptsValue = (1 / videoSpeed).toFixed(4);
+        const speedCmd = `ffmpeg -y -i "${videoPath}" -vf "setpts=${ptsValue}*PTS" -an "${spedUpPath}"`;
+        
+        core.info(`Executing FFmpeg: ${speedCmd}`);
+        try {
+          execSync(speedCmd, { stdio: 'inherit', shell: true });
+          if (fs.existsSync(spedUpPath)) {
+            core.info('Speed adjustment successful. Replacing original file.');
+            fs.renameSync(spedUpPath, videoPath);
+          } else {
+            core.warning('FFmpeg completed but processed file not found. Keeping original.');
+          }
+        } catch (ffmpegErr) {
+          core.error(`FFmpeg error during speed adjustment: ${ffmpegErr.message}`);
+        }
       }
 
-      core.info(`Video saved as ${videoPath}`);
+      const finalStats = fs.statSync(videoPath);
+      core.info(`Video recording complete: ${videoPath} (${finalStats.size} bytes)`);
       core.setOutput('video_path', videoPath);
+      core.info('--- Video Recording Finished ---');
     }
 
     await browser.close();
+    core.info('Browser closed.');
 
-    core.info(`Screenshot saved as ${filePath} and updated ${latestPath}`);
     core.setOutput('screenshot_path', filePath);
     core.setOutput('latest_path', latestPath);
 
     if (makeGif) {
+      core.info('Creating animated GIF...');
       await createGifFromScreenshots(folder, basename, gifName, frameDuration, scaleWidth);
     }
   } catch (error) {
-    core.setFailed(error.message);
+    core.setFailed(`Action failed with error: ${error.message}`);
+    if (error.stack) {
+      core.debug(error.stack);
+    }
   }
 })();
