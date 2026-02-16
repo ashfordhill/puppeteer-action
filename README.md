@@ -21,17 +21,17 @@ An animated GIF or video can be optionally created from the page.
 | Name             | Required | Default        | Description                                                                |
 | ---------------- | -------- | -------------- | -------------------------------------------------------------------------- |
 | `url`            | Yes      | *(none)*       | The URL to screenshot or record.                                           |
+| `record`         | No       | `true`         | `true` = always record, `false` = only when commit message contains `#record`. |
 | `folder`         | Yes      | `timeline`     | The folder to save outputs in.                                             |
-| `base_screenshot_name` | Yes | `screenshot`  | The base name for the screenshot files.                                    |
+| `screenshot_base_name` | Yes | `screenshot`  | The base name for the screenshot files.                                    |
 | `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots.                      |
 | `gif_name`       | No       | `timeline.gif` | Output GIF name.                                                           |
-| `frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
-| `scale_width`    | No       | `640`          | Width of the output GIF in pixels (height auto-scales).                    |
-| `auto_screenshots` | No     | `true`         | `true` = always take screenshots, `false` = only when commit message contains `#screenshot`. |
+| `gif_frame_duration` | No       | `1`            | How long (in seconds) each image should display in the GIF.                |
+| `gif_scale_width`    | No       | `640`          | Width of the output GIF in pixels (height auto-scales).                    |
 | `video_format`     | No       | `none`         | Output format(s) for the video. Options: `mp4`, `gif`, or `mp4,gif`. Set to `none` to disable. |
-| `video_duration` | No       | `10`           | Duration to record video in seconds.                                       |
-| `video_speed_seconds` | No  | `1`            | Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower).   |
-| `base_video_name` | No      | `video`        | Base name for the video file (extension added automatically).              |
+| `video_base_name` | No      | `video`        | Base name for the video file (extension added automatically).              |
+| `video_duration_seconds` | No       | `10`           | Duration to record video in seconds.                                       |
+| `video_speed_multiplier` | No  | `1`            | Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower).   |
 
 ## Setup
 
@@ -52,42 +52,39 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Capture and save visual records
-        uses: ashfordhill/puppeteer-action@v8
+        uses: ashfordhill/puppeteer-action@v9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           url: http://localhost:3000
+          record: true
           folder: timeline
-          base_screenshot_name: screenshot
+          screenshot_base_name: screenshot
           make_gif: true
           gif_name: timeline.gif
-          frame_duration: 1
-          scale_width: 640
-          # Set to false if wanting action only when '#screenshot' in latest commit
-          auto_screenshots: true  
-          # Video recording settings
+          gif_frame_duration: 1
+          gif_scale_width: 640
           video_format: mp4,gif
-          video_duration: 10
-          video_speed_seconds: 2
-          base_video_name: video
+          video_base_name: video
+          video_duration_seconds: 10
+          video_speed_multiplier: 2
 
       - name: Commit visual records
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          git add -A
-          git commit -m "Add/update visual screenshots [skip ci]" || echo "No changes to commit"
-          git push origin HEAD:${{ github.ref }}
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Add/update visual records [skip ci]"
+          file_pattern: "*.png *.gif *.mp4"
 ```
 
-**Usage with "auto_screenshots: false"**
+**Usage with "record: false"**
 
-To trigger a screenshot with this setting, include `#screenshot` in your commit message:
+To trigger a recording with this setting, include `#record` in your commit message:
 ```bash
-git commit -m "Update homepage layout #screenshot"
+git commit -m "Update homepage layout #record"
 ```
 
 ## Future Considerations

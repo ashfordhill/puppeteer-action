@@ -18,15 +18,15 @@ function guessHostIP() {
   }
 }
 
-async function shouldTakeScreenshot(autoScreenshots) {
-  // If auto_screenshots is true, always take screenshots
-  if (autoScreenshots === 'true') {
-    core.info('Auto screenshots enabled - taking screenshot');
+async function shouldRecord(recordSetting) {
+  // If record is true, always take screenshots
+  if (recordSetting === 'true') {
+    core.info('Recording enabled - proceeding with action');
     return true;
   }
 
-  // If auto_screenshots is false, check commit message for #screenshot
-  core.info('Auto screenshots disabled - checking commit messages for #screenshot');
+  // If record is false, check commit message for #record
+  core.info('Recording disabled - checking commit messages for #record');
   
   try {
     // Get the GitHub context
@@ -35,7 +35,7 @@ async function shouldTakeScreenshot(autoScreenshots) {
     // We need a GitHub token to access the API
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
-      core.warning('GITHUB_TOKEN not found. Cannot check commit messages. Skipping screenshot.');
+      core.warning('GITHUB_TOKEN not found. Cannot check commit messages. Skipping action.');
       return false;
     }
 
@@ -62,24 +62,24 @@ async function shouldTakeScreenshot(autoScreenshots) {
         continue;
       }
 
-      // Check if this commit message contains #screenshot
+      // Check if this commit message contains #record
       const message = commit.commit.message;
       core.info(`Checking commit ${commit.sha.substring(0, 7)}: ${message.split('\n')[0]}`);
       
-      if (message.includes('#screenshot')) {
-        core.info('Found #screenshot in commit message - taking screenshot');
+      if (message.includes('#record')) {
+        core.info('Found #record in commit message - proceeding with action');
         return true;
       } else {
-        core.info('No #screenshot found in latest non-bot commit - skipping screenshot');
+        core.info('No #record found in latest non-bot commit - skipping action');
         return false;
       }
     }
 
-    core.info('No non-bot commits found in recent history - skipping screenshot');
+    core.info('No non-bot commits found in recent history - skipping action');
     return false;
     
   } catch (error) {
-    core.warning(`Error checking commit messages: ${error.message}. Skipping screenshot.`);
+    core.warning(`Error checking commit messages: ${error.message}. Skipping action.`);
     return false;
   }
 }
@@ -167,25 +167,25 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
 (async () => {
   try {
     const folder = core.getInput('folder');
-    const basename = core.getInput('base_screenshot_name');
+    const basename = core.getInput('screenshot_base_name');
     const makeGif = core.getInput('make_gif') === 'true';
     const gifName = core.getInput('gif_name');
-    const frameDuration = core.getInput('frame_duration'); // seconds per frame
-    const scaleWidth = core.getInput('scale_width');
-    const autoScreenshots = core.getInput('auto_screenshots');
+    const frameDuration = core.getInput('gif_frame_duration'); // seconds per frame
+    const scaleWidth = core.getInput('gif_scale_width');
+    const record = core.getInput('record');
     
     const videoFormatInput = core.getInput('video_format').toLowerCase();
     const videoFormats = videoFormatInput === 'none' ? [] : videoFormatInput.split(',').map(f => f.trim());
     const makeVideo = videoFormats.length > 0;
     
-    const videoDuration = parseInt(core.getInput('video_duration'), 10);
-    const videoSpeed = parseFloat(core.getInput('video_speed_seconds'));
-    const videoName = core.getInput('base_video_name');
+    const videoDuration = parseInt(core.getInput('video_duration_seconds'), 10);
+    const videoSpeed = parseFloat(core.getInput('video_speed_multiplier'));
+    const videoName = core.getInput('video_base_name');
 
-    // Check if we should take a screenshot
-    const shouldRun = await shouldTakeScreenshot(autoScreenshots);
+    // Check if we should record
+    const shouldRun = await shouldRecord(record);
     if (!shouldRun) {
-      core.info('Skipping screenshot based on auto_screenshots setting and commit message check');
+      core.info('Skipping action based on record setting and commit message check');
       return;
     }
 

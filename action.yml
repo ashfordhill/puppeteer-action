@@ -8,11 +8,15 @@ inputs:
     description: 'The URL to visit and screenshot'
     required: true
     default: 'http://localhost:3000'
+  record:
+    description: 'Whether to record (true) or only when commit message contains "#record" (false)'
+    required: false
+    default: 'true'
   folder:
     description: 'The folder to save outputs in'
     required: true
     default: 'timeline'
-  base_screenshot_name:
+  screenshot_base_name:
     description: 'Base name for screenshots (e.g., "screenshot")'
     required: true
     default: 'screenshot'
@@ -24,34 +28,30 @@ inputs:
     description: 'Output GIF name (e.g., "timeline.gif")'
     required: false
     default: 'timeline.gif'
-  frame_duration:
+  gif_frame_duration:
     description: 'Seconds each frame is shown in the GIF (e.g., 0.083 for ~12 fps, 1 for 1 fps)'
     required: false
     default: '1'
-  scale_width:
+  gif_scale_width:
     description: 'Output width in pixels (height auto-scaled)'
     required: false
     default: '640'
-  auto_screenshots:
-    description: 'Whether to automatically take screenshots (true) or only when commit message contains "#screenshot" (false)'
-    required: false
-    default: 'true'
   video_format:
     description: 'Output format(s) for the video. Options: mp4, gif, or "mp4,gif". Set to "none" to disable.'
     required: false
     default: 'none'
-  video_duration:
-    description: 'Duration to record video in seconds'
-    required: false
-    default: '10'
-  video_speed_seconds:
-    description: 'Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower)'
-    required: false
-    default: '1'
-  base_video_name:
+  video_base_name:
     description: 'Base name for the video file (extension added automatically)'
     required: false
     default: 'video'
+  video_duration_seconds:
+    description: 'Duration to record video in seconds'
+    required: false
+    default: '10'
+  video_speed_multiplier:
+    description: 'Speed up factor for the video (e.g., 2 for 2x speed, 0.5 for 50% slower)'
+    required: false
+    default: '1'
 
 runs:
   using: 'docker'
