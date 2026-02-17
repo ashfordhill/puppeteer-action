@@ -8,7 +8,7 @@ inputs:
     description: 'The URL to visit and screenshot'
     required: true
     default: 'http://localhost:3000'
-  record:
+  auto_record:
     description: 'Whether to record (true) or only when commit message contains "#record" (false)'
     required: false
     default: 'true'

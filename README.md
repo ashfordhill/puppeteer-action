@@ -21,7 +21,7 @@ An animated GIF or video can be optionally created from the page.
 | Name             | Required | Default        | Description                                                                |
 | ---------------- | -------- | -------------- | -------------------------------------------------------------------------- |
 | `url`            | Yes      | *(none)*       | The URL to screenshot or record.                                           |
-| `record`         | No       | `true`         | `true` = always record, `false` = only when commit message contains `#record`. |
+| `auto_record`     | No       | `true`         | `true` = always record, `false` = only when commit message contains `#record`. |
 | `folder`         | Yes      | `timeline`     | The folder to save outputs in.                                             |
 | `screenshot_base_name` | Yes | `screenshot`  | The base name for the screenshot files.                                    |
 | `make_gif`       | No       | `false`        | Whether to generate an animated GIF from screenshots.                      |
@@ -61,7 +61,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           url: http://localhost:3000
-          record: true
+          auto_record: true
           folder: timeline
           screenshot_base_name: screenshot
           make_gif: true
@@ -80,7 +80,7 @@ jobs:
           file_pattern: "*.png *.gif *.mp4"
 ```
 
-**Usage with "record: false"**
+**Usage with "auto_record: false"**
 
 To trigger a recording with this setting, include `#record` in your commit message:
 ```bash

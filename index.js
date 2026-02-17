@@ -18,14 +18,14 @@ function guessHostIP() {
   }
 }
 
-async function shouldRecord(recordSetting) {
-  // If record is true, always take screenshots
-  if (recordSetting === 'true') {
+async function shouldRecord(autoRecordSetting) {
+  // If auto_record is true, always take screenshots
+  if (autoRecordSetting === 'true') {
     core.info('Recording enabled - proceeding with action');
     return true;
   }
 
-  // If record is false, check commit message for #record
+  // If auto_record is false, check commit message for #record
   core.info('Recording disabled - checking commit messages for #record');
   
   try {
@@ -172,7 +172,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     const gifName = core.getInput('gif_name');
     const frameDuration = core.getInput('gif_frame_duration'); // seconds per frame
     const scaleWidth = core.getInput('gif_scale_width');
-    const record = core.getInput('record');
+    const auto_record = core.getInput('auto_record');
     
     const videoFormatInput = core.getInput('video_format').toLowerCase();
     const videoFormats = videoFormatInput === 'none' ? [] : videoFormatInput.split(',').map(f => f.trim());
@@ -183,7 +183,7 @@ async function createGifFromScreenshots(folder, base, gifName, frameDuration, sc
     const videoName = core.getInput('video_base_name');
 
     // Check if we should record
-    const shouldRun = await shouldRecord(record);
+    const shouldRun = await shouldRecord(auto_record);
     if (!shouldRun) {
       core.info('Skipping action based on record setting and commit message check');
       return;
