@@ -1,5 +1,5 @@
-name: 'Puppeteer Action'
-description: 'Take a screenshot with Puppeteer; optionally build an animated GIF from a timeline of screenshots'
+name: 'Puppeteer Screenshot, Timeline and GIF Action'
+description: 'Take screenshots and videos of given URL. Create timeline GIFs with cumulative screenshots to display target history.'
 branding:
   icon: 'camera'
   color: 'purple'
